@@ -22,6 +22,10 @@
         .cell-invalid {
             background-color: #fee2e2; /* Tailwind red-100 */
         }
+        .cell-flash-red {
+            background-color: #fca5a5 !important; /* Tailwind red-300 */
+            transition: background-color 0.1s;
+        }
         .cell-content {
             position: absolute;
             top: 0;
@@ -202,25 +206,57 @@
                 }
             }
             
-            function onCellClick(row, col) {
-                selectedCell = { row, col };
-                modalCellInfo.textContent = `Cell (${row + 1}, ${col + 1})`;
+            function onCellClick(clickedRow, clickedCol) {
+                // DÜZELTME: Bir ok yerleştirmeden ÖNCE bu hücreye başka bir okun işaret edip etmediğini kontrol et.
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        const arrow = board[r][c];
+                        if (arrow) {
+                            const dir = directions[arrow.direction];
+                            let checkR = r + dir.r;
+                            let checkC = c + dir.c;
+                            while (checkR >= 0 && checkR < GRID_SIZE && checkC >= 0 && checkC < GRID_SIZE) {
+                                if (checkR === clickedRow && checkC === clickedCol) {
+                                    // (r, c)'deki bir ok, tıklanan hücreye işaret ediyor.
+                                    // Yeni bir ok yerleştirmeyi engelle.
+                                    const cellElement = gridContainer.querySelector(`[data-row='${clickedRow}'][data-col='${clickedCol}']`);
+                                    if (cellElement) {
+                                        cellElement.classList.add('cell-flash-red');
+                                        setTimeout(() => {
+                                            cellElement.classList.remove('cell-flash-red');
+                                        }, 500);
+                                    }
+                                    return; // Fonksiyondan çık, modalı açma.
+                                }
+                                if (board[checkR][checkC]) {
+                                    break; // Yol başka bir ok tarafından engellendi.
+                                }
+                                checkR += dir.r;
+                                checkC += dir.c;
+                            }
+                        }
+                    }
+                }
+                
+                // Eğer kontrol başarılı olursa, modalı açmaya devam et.
+                selectedCell = { row: clickedRow, col: clickedCol };
+                modalCellInfo.textContent = `Cell (${clickedRow + 1}, ${clickedCol + 1})`;
                 
                 document.querySelectorAll('.arrow-dir-btn').forEach(btn => {
                     const dirKey = btn.dataset.dir;
                     let disabled = false;
                     
-                    if ((row === 0 && dirKey.includes('up')) ||
-                        (row === GRID_SIZE - 1 && dirKey.includes('down')) ||
-                        (col === 0 && dirKey.includes('left')) ||
-                        (col === GRID_SIZE - 1 && dirKey.includes('right'))) {
+                    if ((clickedRow === 0 && dirKey.includes('up')) ||
+                        (clickedRow === GRID_SIZE - 1 && dirKey.includes('down')) ||
+                        (clickedCol === 0 && dirKey.includes('left')) ||
+                        (clickedCol === GRID_SIZE - 1 && dirKey.includes('right'))) {
                         disabled = true;
                     }
 
                     if (!disabled) {
                         const dir = directions[dirKey];
-                        let checkR = row + dir.r;
-                        let checkC = col + dir.c;
+                        let checkR = clickedRow + dir.r;
+                        let checkC = clickedCol + dir.c;
                         while (checkR >= 0 && checkR < GRID_SIZE && checkC >= 0 && checkC < GRID_SIZE) {
                             if (board[checkR][checkC] !== null) {
                                 disabled = true;
@@ -310,7 +346,6 @@
                 potentialStars = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(0));
 
                 function findPermutations(row, currentPermutation, usedCols) {
-                    // DÜZELTME: Hız optimizasyonu kaldırıldı. Artık tüm çözümleri arayacak.
                     if (row === GRID_SIZE) {
                         if (checkSolution(currentPermutation)) {
                             solutionCount++;
@@ -339,7 +374,6 @@
                 } else if (solutionCount === 1) {
                     updateStatus('🎉 Unique solution found! 🎉', 'bg-green-100 text-green-800');
                 } else {
-                    // DÜZELTME: Gerçek çözüm sayısını göster (çok büyükse bir limitle gösterilebilir ama şimdilik tam sayı daha iyi).
                     updateStatus(`Multiple solutions found (${solutionCount})`, 'bg-yellow-100 text-yellow-800');
                 }
                 
